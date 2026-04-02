@@ -13,49 +13,40 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
-// Ignore words
-const IGNORE = ["BUY", "SELL", "USD", "INR", "VOL", "CHANGE"];
-
-// ❌ BLOCK THESE AREAS COMPLETELY
-function isInsideBlockedArea(el) {
+// ❌ Block UI junk (important)
+function isBlocked(el) {
   return (
-    el.closest("button") ||                // buttons
-    el.closest("[role='button']") ||       // UI buttons
-    el.closest("svg") ||                   // icons
-    el.closest("canvas") ||                // chart area
-    el.closest(".chart-container") ||      // chart
-    el.closest(".tv-chart") ||             // tradingview chart
-    el.closest(".toolbar") ||              // top toolbar
-    el.closest("[class*='button']")        // any button class
+    el.closest("button") ||
+    el.closest("[role='button']") ||
+    el.closest("svg") ||
+    el.closest("canvas") ||
+    el.closest("[class*='toolbar']") ||
+    el.closest("[class*='button']")
   );
 }
 
-// Validate symbol
-function isValidSymbol(word) {
-  return (
-    word.length >= 3 &&
-    word.length <= 15 &&
-    /^[A-Z0-9!]+$/.test(word) &&
-    !IGNORE.includes(word)
-  );
-}
-
-// Extract symbol
-function extractSymbol(el) {
+// ✅ CORE: Extract exact TradingView symbol
+function extractTVSymbol(el) {
   let current = el;
 
-  for (let i = 0; i < 4 && current; i++) {
-    const text = current.innerText;
+  for (let i = 0; i < 5 && current; i++) {
 
-    if (text && text.length < 40) {
-      const words = text.split(/\s+/);
+    // Look for anchor links
+    const link = current.querySelector("a[href*='/symbols/']");
 
-      for (let word of words) {
-        word = word.replace(/[^A-Z0-9!]/g, "");
+    if (link) {
+      const href = link.getAttribute("href");
 
-        if (isValidSymbol(word)) {
-          return word;
-        }
+      // Example: /symbols/NSE-QPOWER/
+      const match = href.match(/symbols\/([^/]+)\//);
+
+      if (match && match[1]) {
+        const raw = match[1]; // NSE-QPOWER
+
+        // Convert to TradingView format
+        const symbol = raw.replace("-", ":"); // NSE:QPOWER
+
+        return symbol;
       }
     }
 
@@ -65,32 +56,13 @@ function extractSymbol(el) {
   return null;
 }
 
-// Map symbol
-function mapSymbol(symbol) {
-  if (!symbol) return null;
-
-  if (symbol.includes(":")) return symbol;
-
-  if (symbol.endsWith("1!")) return `MCX:${symbol}`;
-  if (symbol === "NIFTY") return "NSE:NIFTY";
-  if (symbol === "BANKNIFTY") return "NSE:BANKNIFTY";
-
-  if (/^[A-Z]{3,15}$/.test(symbol)) {
-    return `NSE:${symbol}`;
-  }
-
-  return symbol;
-}
-
 // Open chart
 function openChart(symbol) {
-  const mapped = mapSymbol(symbol);
+  if (!symbol || symbol === lastSymbol) return;
 
-  if (!mapped || mapped === lastSymbol) return;
+  lastSymbol = symbol;
 
-  lastSymbol = mapped;
-
-  const url = `https://www.tradingview.com/chart/?symbol=${mapped}`;
+  const url = `https://www.tradingview.com/chart/?symbol=${symbol}`;
 
   chrome.runtime.sendMessage({
     type: "OPEN_CHART",
@@ -102,18 +74,17 @@ function openChart(symbol) {
 document.addEventListener("mouseover", (e) => {
   if (!isEnabled) return;
 
-  // ❌ BLOCK UI AREAS
-  if (isInsideBlockedArea(e.target)) return;
+  if (isBlocked(e.target)) return;
 
   clearTimeout(hoverTimeout);
 
   hoverTimeout = setTimeout(() => {
-    const symbol = extractSymbol(e.target);
+    const symbol = extractTVSymbol(e.target);
 
     if (symbol) {
       openChart(symbol);
     }
-  }, 250);
+  }, 200);
 });
 
 // Cleanup

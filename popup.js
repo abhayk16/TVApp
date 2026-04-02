@@ -12,7 +12,7 @@ btn.addEventListener("click", () => {
     chrome.storage.sync.set({ tvapp_enabled: newState });
     updateUI(newState);
   });
-});
+}) ;
 
 function updateUI(enabled) {
   if (enabled) {
