@@ -1,18 +1,21 @@
-let tvWindowId = null;
-let tvTabId = null;
+let chartWindowId = null;
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "OPEN_CHART") {
     const url = msg.url;
 
-    if (tvWindowId !== null && tvTabId !== null) {
-      chrome.tabs.update(tvTabId, { url: url }, () => {
-        if (chrome.runtime.lastError) {
+    if (chartWindowId !== null) {
+      chrome.windows.get(chartWindowId, (win) => {
+        if (chrome.runtime.lastError || !win) {
           createWindow(url);
+        } else {
+          chrome.tabs.query({ windowId: chartWindowId }, (tabs) => {
+            if (tabs.length > 0) {
+              chrome.tabs.update(tabs[0].id, { url: url });
+            }
+          });
         }
       });
-
-      chrome.windows.update(tvWindowId, { focused: true });
     } else {
       createWindow(url);
     }
@@ -20,18 +23,18 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 function createWindow(url) {
-  chrome.windows.create(
-    {
-      url: url,
-      type: "popup",
-      width: 900,
-      height: 600,
-      left: 200,
-      top: 100
-    },
-    (win) => {
-      tvWindowId = win.id;
-      tvTabId = win.tabs[0].id;
-    }
-  );
+  chrome.windows.create({
+    url: url,
+    type: "popup",
+    width: 1000,
+    height: 700
+  }, (win) => {
+    chartWindowId = win.id;
+  });
 }
+
+chrome.windows.onRemoved.addListener((id) => {
+  if (id === chartWindowId) {
+    chartWindowId = null;
+  }
+});

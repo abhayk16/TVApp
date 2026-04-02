@@ -2,7 +2,7 @@ let isEnabled = true;
 let hoverTimeout = null;
 let lastSymbol = null;
 
-// Load toggle
+// Toggle
 chrome.storage.sync.get(["tvapp_enabled"], (res) => {
   isEnabled = res.tvapp_enabled ?? true;
 });
@@ -13,7 +13,7 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
-// ❌ Block UI junk (important)
+// Block unwanted UI
 function isBlocked(el) {
   return (
     el.closest("button") ||
@@ -25,32 +25,64 @@ function isBlocked(el) {
   );
 }
 
-// ✅ CORE: Extract exact TradingView symbol
+// TradingView exact symbol
 function extractTVSymbol(el) {
   let current = el;
 
   for (let i = 0; i < 5 && current; i++) {
-
-    // Look for anchor links
     const link = current.querySelector("a[href*='/symbols/']");
 
     if (link) {
       const href = link.getAttribute("href");
-
-      // Example: /symbols/NSE-QPOWER/
       const match = href.match(/symbols\/([^/]+)\//);
 
       if (match && match[1]) {
-        const raw = match[1]; // NSE-QPOWER
-
-        // Convert to TradingView format
-        const symbol = raw.replace("-", ":"); // NSE:QPOWER
-
-        return symbol;
+        return match[1].replace("-", ":");
       }
     }
 
     current = current.parentElement;
+  }
+
+  return null;
+}
+
+// Extract $ / #
+function extractTicker(el) {
+  let current = el;
+
+  for (let i = 0; i < 5 && current; i++) {
+    const text = current.textContent;
+
+    if (text) {
+      const match = text.match(/([$#])([A-Za-z]{2,20})\b/);
+
+      if (match) {
+        return {
+          prefix: match[1],
+          symbol: match[2]
+        };
+      }
+    }
+
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
+// Simple mapping
+function mapSymbol(symbol, prefix) {
+  if (!symbol) return null;
+
+  const s = symbol.toUpperCase();
+
+  if (prefix === "$") {
+    return `NASDAQ:${s}`;
+  }
+
+  if (prefix === "#") {
+    return `NSE:${s}`;
   }
 
   return null;
@@ -70,16 +102,22 @@ function openChart(symbol) {
   });
 }
 
-// Hover
+// Hover logic
 document.addEventListener("mouseover", (e) => {
   if (!isEnabled) return;
-
   if (isBlocked(e.target)) return;
 
   clearTimeout(hoverTimeout);
 
   hoverTimeout = setTimeout(() => {
-    const symbol = extractTVSymbol(e.target);
+    let symbol = extractTVSymbol(e.target);
+
+    if (!symbol) {
+      const raw = extractTicker(e.target);
+      if (raw) {
+        symbol = mapSymbol(raw.symbol, raw.prefix);
+      }
+    }
 
     if (symbol) {
       openChart(symbol);
@@ -87,7 +125,6 @@ document.addEventListener("mouseover", (e) => {
   }, 200);
 });
 
-// Cleanup
 document.addEventListener("mouseout", () => {
   clearTimeout(hoverTimeout);
 });
