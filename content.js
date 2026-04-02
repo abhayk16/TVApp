@@ -15,6 +15,8 @@ chrome.storage.onChanged.addListener((changes) => {
 
 // Block unwanted UI
 function isBlocked(el) {
+  if (!el.innerText || el.innerText.length > 50) return true;
+
   return (
     el.closest("button") ||
     el.closest("[role='button']") ||
@@ -55,6 +57,7 @@ function extractTicker(el) {
     const text = current.textContent;
 
     if (text) {
+      // ✅ Mixed-case support
       const match = text.match(/([$#])([A-Za-z]{2,20})\b/);
 
       if (match) {
@@ -71,11 +74,15 @@ function extractTicker(el) {
   return null;
 }
 
-// Simple mapping
+// Map symbol
 function mapSymbol(symbol, prefix) {
   if (!symbol) return null;
 
   const s = symbol.toUpperCase();
+
+  // ❌ Ignore junk hashtags
+  const invalid = ["INDIA", "NEWS", "BREAKING", "TRENDING"];
+  if (invalid.includes(s)) return null;
 
   if (prefix === "$") {
     return `NASDAQ:${s}`;
@@ -122,9 +129,15 @@ document.addEventListener("mouseover", (e) => {
     if (symbol) {
       openChart(symbol);
     }
-  }, 200);
+  }, 300); // smoother delay
 });
 
+// Cleanup
 document.addEventListener("mouseout", () => {
   clearTimeout(hoverTimeout);
+});
+
+// Reset when leaving page
+document.addEventListener("mouseleave", () => {
+  lastSymbol = null;
 });
