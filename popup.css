@@ -1,0 +1,26 @@
+body {
+  margin: 0;
+  padding: 6px;
+  background: transparent;
+  font-family: sans-serif;
+}
+
+#toggleBtn {
+  width: 70px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+}
+
+/* ON = green */
+.on {
+  background-color: #16a34a;
+}
+
+/* OFF = red */
+.off {
+  background-color: #dc2626;
+}
